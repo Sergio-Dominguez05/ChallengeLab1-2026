@@ -27,6 +27,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableStateOf
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,13 +53,39 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CharacterSheetScreen(modifier: Modifier = Modifier){
     // Todos los composes llevan siempre un modifier para controlar visualmente el codigo
-    var VIT by remember {mutableIntStateOf(10)}
-    var DEX by remember {mutableIntStateOf(10)}
-    var WIS by remember {mutableIntStateOf(10)}
+    var vit by remember {mutableIntStateOf(10)}
+    var dex by remember {mutableIntStateOf(10)}
+    var wis by remember {mutableIntStateOf(10)}
+    val total = vit + dex + wis
+
+
+    var vitRolling by remember { mutableStateOf(false) }
+    var dexRolling by remember { mutableStateOf(false) }
+    var wisRolling by remember { mutableStateOf(false) }
+    val anyRolling = vitRolling || dexRolling || wisRolling
+
+    val scope = rememberCoroutineScope()
+
+    fun rollAnimated(
+        setRolling: (Boolean) -> Unit,
+        setValue: (Int) -> Unit
+    ) {
+        scope.launch {
+            setRolling(true)
+
+            repeat(15) {
+                setValue((1..20).random())
+                delay(80)
+            }
+
+            setRolling(false)
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         Text(
@@ -63,55 +96,107 @@ fun CharacterSheetScreen(modifier: Modifier = Modifier){
         )
 
         StatRow(
-            name = "Vitalidad",
-            value = VIT,
-            onRoll = { VIT = (1..20).random()}
+            name = "Vitality",
+            value = vit,
+            isRolling = vitRolling,
+            onRoll = {
+                rollAnimated(
+                    setRolling = { vitRolling = it },
+                    setValue = { vit = it }
+                )
+            }
         )
 
         StatRow(
-            name = "Destreza",
-            value = DEX,
-            onRoll = { DEX = (1..20).random()}
+            name = "Dexterity",
+            value = dex,
+            isRolling = dexRolling,
+            onRoll = {
+                rollAnimated(
+                    setRolling = { dexRolling = it },
+                    setValue = { dex = it }
+                )
+            }
         )
 
         StatRow(
-            name = "Sabiduría",
-            value = WIS,
-            onRoll = { WIS = (1..20).random()}
+            name = "Wisdom",
+            value = wis,
+            isRolling = wisRolling,
+            onRoll = {
+                rollAnimated(
+                    setRolling = { wisRolling = it },
+                    setValue = { wis = it }
+                )
+            }
         )
     }
-    val TOTAL = VIT + DEX + WIS
+    Text(
+        text = "Total: $total",
+        fontSize = 22.sp,
+        modifier = Modifier.padding(top = 16.dp)
+    )
+    val message = when {
+        total < 30 -> "Re-roll recomendado"
+        total >= 50 -> "Godlike!"
+        else -> ""
+    }
+
+    val messageColor = when {
+        total < 30 -> androidx.compose.ui.graphics.Color.Red
+        total >= 50 -> androidx.compose.ui.graphics.Color(0xFFFFD700) // gold
+        else -> androidx.compose.ui.graphics.Color.Transparent
+    }
+
+    if (!anyRolling && message.isNotEmpty()) {
+        Text(
+            text = message,
+            color = messageColor,
+            fontSize = 18.sp
+        )
+    }
 }
 
 @Composable
 fun StatRow(
     name: String,
     value: Int,
+    isRolling: Boolean,
     onRoll: () -> Unit,
     modifier: Modifier = Modifier
-){
-    Row(
-        modifier = modifier.fillMaxWidth().padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Text(
-            text = name,
-            modifier = Modifier.weight(1f),
-            fontSize = 18.sp
-        )
 
-        Text(
-            text = value.toString(),
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-            fontSize = 18.sp
-        )
-
-        Button(
-            onClick = onRoll,
-            modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Girar")
+
+            Text(
+                text = name,
+                modifier = Modifier.weight(1f),
+                fontSize = 18.sp
+            )
+
+            Text(
+                text = value.toString(),
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                fontSize = 18.sp
+            )
+
+            Button(
+                onClick = onRoll,
+                enabled = !isRolling,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (isRolling) "Rolling..." else "Roll")
+            }
         }
     }
 }
